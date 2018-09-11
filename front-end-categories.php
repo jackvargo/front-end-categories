@@ -141,10 +141,18 @@ function fec_cat_create() {
 	// Output HTML
 	ob_start(); ?>
 		<h2>Add New Category</h2>
-			<form id="new-cat" action="" method="post">
-			<label>Category name: </label>
-			<input type="text" name="newcat" value="">
-			<input type="submit" name="submit-cat" value="Submit">
+		<form id="new-cat" action="" method="post">
+			<table class="form-table">
+				<tbody>
+					<tr><th scope="row" valign="top">
+						<label>Category name: </label></th>
+					<td>
+						<input type="text" name="newcat" value="">
+						<br/><small><?php _e('Categories can be used to classify the content being published.', 'paid-memberships-pro' );?></small></td>
+					</tr>
+				</tbody>
+			</table>
+			<p class="submit"><input type="submit" name="submit-cat" class="button-primary" value="Save New Category" /></p>
 			<span style="display: none;" id="new-cat-message"></span>
 		</form>
 
@@ -201,28 +209,36 @@ function fec_subcat_create() {
 	ob_start(); ?>
 		<h2>Add New Sub-Category</h2>
 		<form id="new-subcat" action="" method="post">
-			<label>Sub-category name:</label>
-			<input type="text" name="newsubcat" value=""/>
+			<table class="form-table">
+				<tbody>
+					<tr><th scope="row" valign="top">
+						<label>Sub-category name:</label></th>
+					<td>
+						<input type="text" name="newsubcat" value=""/>
+						<br/><small><?php _e('Sub-Categories can be grouped under other categories to distinguish different types within a category.', 'paid-memberships-pro' );?></small></td>
+					</tr>
 
-			<br />
+					<tr><th scope="row" valign="top">
+						<label>Add sub-category to which parent category?</label></th>
 
-			<label>Add sub-category to which parent category?</label>
-
-		    <?php 
-			    wp_dropdown_categories(
-			    	array(
-			    		'hide_empty' => 0, 
-			    		'name' => 'cat-parent', 
-			    		'orderby ' => 'id', 
-			    		'order' => 'DESC', 
-			    		'hierarchical' => true, 
-			    		'show_option_none' => '-',
-						'id' => 'cat-drop'
-			    	)
-			    );
-			?>
-
-			<input type="submit" name="submit_subcat" value="Submit">
+					<td>
+						<?php 
+							wp_dropdown_categories(
+								array(
+									'hide_empty' => 0, 
+									'name' => 'cat-parent', 
+									'orderby ' => 'id', 
+									'order' => 'DESC', 
+									'hierarchical' => true, 
+									'show_option_none' => '-',
+									'id' => 'cat-drop'
+								)
+							);
+						?>
+					</td></tr>
+				</tbody>
+			</table>
+			<p class="submit"><input type="submit" name="submit_subcat" class="button-primary" value="Save New Sub-Category"></p>
 			<span style="display: none;" id="new-subcat-message"></span>
 		</form>
 		
@@ -288,28 +304,32 @@ function fec_cat_rename() {
 	ob_start(); ?>
 		<h2>Rename a Category</h2>
 		<form id="new-renamecat" action="" method="post">
-			<label>Select category to rename:</label>
-
-		    <?php 
-			    wp_dropdown_categories(
-			    	array(
-			    		'hide_empty' => 0, 
-			    		'name' => 'cat-rename', 
-			    		'orderby ' => 'id', 
-			    		'order' => 'DESC', 
-			    		'hierarchical' => true, 
-			    		'show_option_none' => '-',
-						'id' => 'cat-rename-drop'
-			    	)
-			    );
-			?>
-			<br />
-			<label>New category name:</label>
-			<input type="text" name="newcatname" value=""/>
-
-
-
-			<input type="submit" name="submit_renamecat" value="Rename">
+			<table class="form-table">
+				<tbody>
+					<tr><th scope="row" valign="top">
+						<label>Select category to rename:</label></th>
+					<td>
+						<?php 
+							wp_dropdown_categories(
+								array(
+									'hide_empty' => 0, 
+									'name' => 'cat-rename', 
+									'orderby ' => 'id', 
+									'order' => 'DESC', 
+									'hierarchical' => true, 
+									'show_option_none' => '-',
+									'id' => 'cat-rename-drop'
+								)
+							);
+						?></td></tr>
+					<tr><th scope="row" valign="top">
+						<label>New category name:</label>
+					<td>
+						<input type="text" name="newcatname" id="newcatname" value=""/>
+					</td></tr>
+				</tbody>
+			</table>
+			<p class="submit"><input type="submit" name="submit_renamecat" class="button-primary" value="Rename and Save Category"></p>
 			<span style="display: none;" id="new-renamecat-message"></span>
 		</form>
 		
@@ -353,6 +373,7 @@ function fec_cat_rename() {
 								success: function(refreshResponse) {
 									$('#cat-drop').replaceWith(JSON.parse(refreshResponse)['cat-parent']);
 									$('#cat-rename-drop').replaceWith(JSON.parse(refreshResponse)['cat-rename']);
+									$('#newcatname').val("");
 								}
 							});
 						}
