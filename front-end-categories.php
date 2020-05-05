@@ -13,6 +13,10 @@ Version: 0.3
 * Global Variables
 ******************************/
 
+global $taxonomy_to_edit;
+$taxonomy_to_edit = get_option('fec_option_target_taxonomy', 'category');
+//TODO: Make this a configurable plugin setting
+
 if (isset($_POST['submit_cat'])) {
 	require_once('../../../wp-load.php');
 	
@@ -22,9 +26,10 @@ if (isset($_POST['submit_cat'])) {
 		$cat_name = $_POST['newcat'];  
 		$new_cat_ID = wp_insert_term(
 			$cat_name,
-			'category'
+			$taxonomy_to_edit
 		);
-		
+		//TODO: Allow adding/editing of the description as well
+
 		// Success
 		echo '<span class="fec-success">Category Added</span>';
 	}
@@ -48,7 +53,7 @@ if (isset($_POST['submit_subcat'])) {
 			$subcat_name = $_POST['newsubcat'];  
 			$parentCatID = $_POST['cat-parent'];
 			$arg = array('description' => $subcat_name, 'parent' => $parentCatID);
-			$new_subcat_ID = wp_insert_term($subcat_name, 'category', $arg);
+			$new_subcat_ID = wp_insert_term($subcat_name, $taxonomy_to_edit, $arg);
 
 			// Success
 			echo '<span class="fec-success">Sub-category added successfully</span>';
@@ -73,7 +78,7 @@ if (isset($_POST['submit_renamecat'])) {
 			$new_cat_name = $_POST['newcatname'];  
 			$catID = $_POST['cat-rename'];
 			$arg = array('description' => $new_cat_name, 'name' => $new_cat_name);
-			$new_cat_ID = wp_update_term($catID, 'category', $arg);
+			$new_cat_ID = wp_update_term($catID, $taxonomy_to_edit, $arg);
 			
 			//echo '<span class="fec-error">$catID: '.$catID.' - $new_cat_name: '.$new_cat_name.', Category rename response: '.var_dump($new_cat_ID).'</span>';
 			
@@ -108,7 +113,8 @@ if (isset($_POST['refresh'])) {
 				'hierarchical' => true, 
 				'show_option_none' => '-',
 				'id' => 'cat-drop',
-				'echo' => false
+				'echo' => false,
+				'taxonomy' => $taxonomy_to_edit,
 			)
 		),
 		'cat-rename' => wp_dropdown_categories(
@@ -120,7 +126,8 @@ if (isset($_POST['refresh'])) {
 				'hierarchical' => true, 
 				'show_option_none' => '-',
 				'id' => 'cat-rename-drop',
-				'echo' => false
+				'echo' => false,
+				'taxonomy' => $taxonomy_to_edit,
 			)
 		)
     ));
@@ -130,13 +137,13 @@ if (isset($_POST['refresh'])) {
 $fec_prefix = 'fec_';
 $fec_plugin_name = 'Front-end Categories';
 
-
 /******************************
 * Functions
 ******************************/
 
 // Create category on front-end
 function fec_cat_create() {
+	global $taxonomy_to_edit;
 
 	// Output HTML
 	ob_start(); ?>
@@ -204,6 +211,7 @@ add_shortcode('front-end-cat', 'fec_cat_create');
 
 // Create sub-category on front-end
 function fec_subcat_create() {
+	global $taxonomy_to_edit;
 
 	// Output HTML
 	ob_start(); ?>
@@ -231,7 +239,8 @@ function fec_subcat_create() {
 									'order' => 'DESC', 
 									'hierarchical' => true, 
 									'show_option_none' => '-',
-									'id' => 'cat-drop'
+									'id' => 'cat-drop',
+                  'taxonomy' => $taxonomy_to_edit,
 								)
 							);
 						?>
@@ -299,6 +308,7 @@ add_shortcode('front-end-subcat', 'fec_subcat_create');
 
 // Rename category on front-end
 function fec_cat_rename() {
+	global $taxonomy_to_edit;
 
 	// Output HTML
 	ob_start(); ?>
@@ -318,7 +328,8 @@ function fec_cat_rename() {
 									'order' => 'DESC', 
 									'hierarchical' => true, 
 									'show_option_none' => '-',
-									'id' => 'cat-rename-drop'
+									'id' => 'cat-rename-drop',
+									'taxonomy' => $taxonomy_to_edit,
 								)
 							);
 						?></td></tr>
@@ -388,3 +399,45 @@ function fec_cat_rename() {
 
 // Shortcode for renaming categories
 add_shortcode('front-end-renamecat', 'fec_cat_rename');
+
+//WPAdmin settings pages
+//TODO: Make this whole thing look better.  Reference the format of the PMPro Approvals plugin or my itg_complex_pricing.php plugin for examples.
+
+function fec_register_settings() {
+	add_option( 'fec_option_target_taxonomy', '');  //Wistia account private key.
+	register_setting( 'fec_options_group', 'fec_option_target_taxonomy', 'fec_callback' );
+	/* add_option( 'fec_option_project_id', '');  //Wistia account project ID.
+	register_setting( 'fec_options_group', 'fec_option_project_id', 'fec_callback' );
+	if ( function_exists( 'pmpro_hasMembershipLevel' ) ) {
+		add_option( 'fec_option_pmpro_default_levels', '');  //Default PM Pro levels when uploading a new video.
+		register_setting( 'fec_options_group', 'fec_option_pmpro_default_levels', 'fec_option_pmpro_default_levels_callback' );
+	}
+	*/
+}
+add_action( 'admin_init', 'fec_register_settings' );
+
+function fec_register_options_page() {
+	add_options_page('Front-End Categories Settings', 'Front-End Categories', 'manage_options', 'fec', 'fec_options_page');
+}
+add_action('admin_menu', 'fec_register_options_page');
+
+function fec_options_page()
+{
+	?>
+  <div>
+    <h2>Front-End Categories</h2>
+    <form method="post" action="options.php">
+			<?php settings_fields( 'fec_options_group' ); ?>
+      <h3>Front-End Categories Configuration</h3>
+      <p><i>These options define what will be accessible to be modified from the front end short-codes.</i></p>
+      <table>
+        <tr valign="top">
+          <th scope="row"><label for="fec_option_target_taxonomy">Target Taxonomy to Edit</label></th>
+          <td><input type="text" id="fec_option_target_taxonomy" name="fec_option_target_taxonomy" value="<?php echo get_option('fec_option_target_taxonomy'); ?>" /></td>
+        </tr>
+      </table>
+			<?php  submit_button(); ?>
+    </form>
+  </div>
+	<?php
+}
