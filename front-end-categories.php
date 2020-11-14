@@ -13,20 +13,23 @@ Version: 0.3
 * Global Variables
 ******************************/
 
-global $taxonomy_to_edit;
-$taxonomy_to_edit = get_option('fec_option_target_taxonomy', 'category');
-//TODO: Make this a configurable plugin setting
+//include_once('wp-includes\option.php');
+if (function_exists('get_option'))
+	$taxonomy_to_edit = get_option('fec_option_target_taxonomy', 'category');
 
 if (isset($_POST['submit_cat'])) {
 	require_once('../../../wp-load.php');
-	
+	$taxonomy_to_edit = get_option('fec_option_target_taxonomy', 'category');
+
 	$cat_ID = get_cat_ID( $_POST['newcat'] );
 
 	if ($cat_ID == 0) {  
-		$cat_name = $_POST['newcat'];  
-		$new_cat_ID = wp_insert_term(
+		$cat_name = $_POST['newcat'];
+		$cat_desc = $_POST['newcatdesc'];
+    $new_cat_ID = wp_insert_term(
 			$cat_name,
-			$taxonomy_to_edit
+			$taxonomy_to_edit,
+      array('description' => $cat_desc)
 		);
 		//TODO: Allow adding/editing of the description as well
 
@@ -45,14 +48,16 @@ if (isset($_POST['submit_cat'])) {
 // Create new sub-category
 if (isset($_POST['submit_subcat'])) {
 	require_once('../../../wp-load.php');
+	$taxonomy_to_edit = get_option('fec_option_target_taxonomy', 'category');
 
 	if (!empty($_REQUEST['newsubcat'])) {
 		$cat_ID = get_cat_ID( $_POST['newsubcat'] ); 
 			
 		if($cat_ID == 0) {  
-			$subcat_name = $_POST['newsubcat'];  
+			$subcat_name = $_POST['newsubcat'];
+			$subcat_desc = $_POST['newsubcat_desc'];
 			$parentCatID = $_POST['cat-parent'];
-			$arg = array('description' => $subcat_name, 'parent' => $parentCatID);
+			$arg = array('description' => $subcat_desc, 'parent' => $parentCatID);
 			$new_subcat_ID = wp_insert_term($subcat_name, $taxonomy_to_edit, $arg);
 
 			// Success
@@ -70,14 +75,16 @@ if (isset($_POST['submit_subcat'])) {
 // Rename a category
 if (isset($_POST['submit_renamecat'])) {
 	require_once('../../../wp-load.php');
+	$taxonomy_to_edit = get_option('fec_option_target_taxonomy', 'category');
 
 	if (!empty($_REQUEST['newcatname'])) {
 		$check_cat_ID = get_cat_ID( $_POST['newcatname'] ); 
 			
 		if($check_cat_ID == 0) {  
-			$new_cat_name = $_POST['newcatname'];  
+			$new_cat_name = $_POST['newcatname'];
+			$new_cat_desc = $_POST['newcatdesc'];
 			$catID = $_POST['cat-rename'];
-			$arg = array('description' => $new_cat_name, 'name' => $new_cat_name);
+			$arg = array('description' => $new_cat_desc, 'name' => $new_cat_name);
 			$new_cat_ID = wp_update_term($catID, $taxonomy_to_edit, $arg);
 			
 			//echo '<span class="fec-error">$catID: '.$catID.' - $new_cat_name: '.$new_cat_name.', Category rename response: '.var_dump($new_cat_ID).'</span>';
@@ -102,7 +109,8 @@ if (isset($_POST['submit_renamecat'])) {
 // Refresh the category list
 if (isset($_POST['refresh'])) {
 	require_once('../../../wp-load.php');
-	
+	$taxonomy_to_edit = get_option('fec_option_target_taxonomy', 'category');
+
 	echo JSON_encode(array(
 		'cat-parent' => wp_dropdown_categories(
 			array(
@@ -129,8 +137,22 @@ if (isset($_POST['refresh'])) {
 				'echo' => false,
 				'taxonomy' => $taxonomy_to_edit,
 			)
+    ),
+		'cat-drop-hidden' => wp_dropdown_categories(
+			array(
+				'hide_empty' => 0,
+				'name' => 'cat-drop-hidden',
+				'orderby ' => 'id',
+				'order' => 'DESC',
+				'hierarchical' => true,
+				'show_option_none' => '-',
+				'value_field' => 'description',
+				'id' => 'cat-drop-hidden',
+				'taxonomy' => $taxonomy_to_edit,
+				'echo' => false,
+			)
 		)
-    ));
+  ));
 	exit();			
 }
 
@@ -157,6 +179,14 @@ function fec_cat_create() {
 						<input type="text" name="newcat" value="">
 						<br/><small><?php _e('Categories can be used to classify the content being published.', 'paid-memberships-pro' );?></small></td>
 					</tr>
+          <tr>
+            <th scope="row" valign="top">
+              <label>Description: </label>
+            </th>
+            <td>
+              <textarea type="textarea" name="newcatdesc" value="" style="margin: 0px; width: 218px; height: 67px;"></textarea>
+              <br><small><?php _e('Category description is a brief summary of the category type and may be shown on summary and filtered video listings.') ?></small></td>
+          </tr>
 				</tbody>
 			</table>
 			<p class="submit"><input type="submit" name="submit-cat" class="button-primary" value="Save New Category" /></p>
@@ -184,7 +214,9 @@ function fec_cat_create() {
 						data: post_data+"&submit_cat=Submit",
 						success: function(d) {
 							$('#new-cat-message').html(d).fadeIn('250').delay('3000').fadeOut('250');
-							
+              $('input[name="newcat"]').val('');
+              $('input[name="newcatdesc"]').val('');
+
 							$.ajax({
 								type: "POST",  
 								async: false,
@@ -193,6 +225,9 @@ function fec_cat_create() {
 								success: function(refreshResponse) {
 									$('#cat-drop').replaceWith(JSON.parse(refreshResponse)['cat-parent']);
 									$('#cat-rename-drop').replaceWith(JSON.parse(refreshResponse)['cat-rename']);
+                  $('#cat-drop-hidden').replaceWith(JSON.parse(refreshResponse)['cat-drop-hidden']);
+                  $('#cat-drop-hidden').hide();
+                  $('#cat-rename-drop').on("change", $.renameCategory_onChange);
 								}
 							});
 						}
@@ -225,8 +260,15 @@ function fec_subcat_create() {
 						<input type="text" name="newsubcat" value=""/>
 						<br/><small><?php _e('Sub-Categories can be grouped under other categories to distinguish different types within a category.', 'paid-memberships-pro' );?></small></td>
 					</tr>
-
-					<tr><th scope="row" valign="top">
+          <tr>
+            <th scope="row" valign="top">
+              <label>Description: </label>
+            </th>
+            <td>
+              <textarea type="textarea" name="newsubcat_desc" value="" style="margin: 0px; width: 218px; height: 67px;"></textarea>
+              <br><small><?php _e('Category description is a brief summary of the category type and may be shown on summary and filtered video listings.') ?></small></td>
+          </tr>
+          <tr><th scope="row" valign="top">
 						<label>Add sub-category to which parent category?</label></th>
 
 					<td>
@@ -282,6 +324,8 @@ function fec_subcat_create() {
 						data: post_data+"&submit_subcat=Submit",
 						success: function(d) {
 							$('#new-subcat-message').html(d).fadeIn('250').delay('3000').fadeOut('250');
+							$('input[name="newsubcat"]').val('');
+							$('textarea[name="newsubcat_desc"]').val('');
 
 							$.ajax({
 								type: "POST",  
@@ -291,6 +335,9 @@ function fec_subcat_create() {
 								success: function(refreshResponse) {
 									$('#cat-drop').replaceWith(JSON.parse(refreshResponse)['cat-parent']);
 									$('#cat-rename-drop').replaceWith(JSON.parse(refreshResponse)['cat-rename']);
+                  $('#cat-drop-hidden').replaceWith(JSON.parse(refreshResponse)['cat-drop-hidden']);
+                  $('#cat-drop-hidden').hide();
+                  $('#cat-rename-drop').on("change", $.renameCategory_onChange);
 								}
 							});
 						}
@@ -312,12 +359,12 @@ function fec_cat_rename() {
 
 	// Output HTML
 	ob_start(); ?>
-		<h2>Rename a Category</h2>
+		<h2>Rename or Edit a Category</h2>
 		<form id="new-renamecat" action="" method="post">
 			<table class="form-table">
 				<tbody>
 					<tr><th scope="row" valign="top">
-						<label>Select category to rename:</label></th>
+						<label><?php _e('Select category to rename/edit:') ?></label></th>
 					<td>
 						<?php 
 							wp_dropdown_categories(
@@ -332,12 +379,34 @@ function fec_cat_rename() {
 									'taxonomy' => $taxonomy_to_edit,
 								)
 							);
+						wp_dropdown_categories(
+							array(
+								'hide_empty' => 0,
+								'name' => 'cat-drop-hidden',
+								'orderby ' => 'id',
+								'order' => 'DESC',
+								'hierarchical' => true,
+								'show_option_none' => '-',
+								'value_field' => 'description',
+								'id' => 'cat-drop-hidden',
+								'taxonomy' => $taxonomy_to_edit,
+								'style' => "display: none;",
+							)
+						);
 						?></td></tr>
 					<tr><th scope="row" valign="top">
 						<label>New category name:</label>
 					<td>
 						<input type="text" name="newcatname" id="newcatname" value=""/>
 					</td></tr>
+          <tr>
+            <th scope="row" valign="top">
+              <label>Description: </label>
+            </th>
+            <td>
+              <textarea type="textarea" name="newcatdesc" id="renamecatdesc" value="" style="margin: 0px; width: 218px; height: 67px;"></textarea>
+              <br><small><?php _e('Category description is a brief summary of the category type and may be shown on summary and filtered video listings.') ?></small></td>
+          </tr>
 				</tbody>
 			</table>
 			<p class="submit"><input type="submit" name="submit_renamecat" class="button-primary" value="Rename and Save Category"></p>
@@ -345,8 +414,20 @@ function fec_cat_rename() {
 		</form>
 		
 		<script>
-			jQuery("document").ready(function($) { 
-				$("#new-renamecat").bind("submit", function(evt) { 
+
+        jQuery("document").ready(function($) {
+          $.renameCategory_onChange = function() {
+              if ($('#cat-drop').find(':selected').text() !== '-') {
+                  //get the description
+                  $('#newcatname').attr("placeholder", $('#cat-rename-drop').find(':selected').text().trim());
+                  $('#renamecatdesc').val($('#cat-drop-hidden').find(':contains("' + $('#cat-rename-drop').find(':selected').text() + '")').val());
+                  $('#renamecatdesc').attr("original_description", $('#renamecatdesc').val());
+              }
+          }
+          $('#cat-drop-hidden').hide();
+			    $('#cat-rename-drop').on("change", $.renameCategory_onChange);
+
+          $("#new-renamecat").bind("submit", function(evt) {
 					evt.preventDefault();
 					
 					if ($('input[name="newcatname"]').val() === '' && $('#cat-drop').find(':selected').text() === '-') {
@@ -362,9 +443,15 @@ function fec_cat_rename() {
 					}
 
 					else if ($('input[name="newcatname"]').val() === '' && $('#cat-drop').find(':selected').text() !== '-') {
-						$('#new-renamecat-message').html('<span class="fec-error">New name for the category is required</span>').stop(true).fadeIn('250').delay('3000').fadeOut('250');
-						$('#cat-drop').focus();
-						return false;
+					    //Exit unless editing the description without changing the name
+              if ($('#renamecatdesc').attr("original_description") == $('#renamecatdesc').val()) {
+                  $('#new-renamecat-message').html('<span class="fec-error">New name or description for the category is required</span>').stop(true).fadeIn('250').delay('3000').fadeOut('250');
+                  $('#cat-drop').focus();
+                  return false;
+              } else {
+                  //Set the name to what was put in the  suggestion so we don't erase it
+                  $('input[name="newcatname"]').val($('#cat-rename-drop').find(':selected').text().trim());
+              }
 					}
 					
 					var post_data = $('#new-renamecat').serialize();
@@ -375,6 +462,8 @@ function fec_cat_rename() {
 						data: post_data+"&submit_renamecat=Submit",
 						success: function(d) {
 							$('#new-renamecat-message').html(d).fadeIn('250').delay('3000').fadeOut('250');
+                $('input[name="newcatname"]').val('');
+                $('#renamecatdesc').val('');
 
 							$.ajax({
 								type: "POST",  
@@ -384,7 +473,11 @@ function fec_cat_rename() {
 								success: function(refreshResponse) {
 									$('#cat-drop').replaceWith(JSON.parse(refreshResponse)['cat-parent']);
 									$('#cat-rename-drop').replaceWith(JSON.parse(refreshResponse)['cat-rename']);
-									$('#newcatname').val("");
+                  $('#cat-drop-hidden').replaceWith(JSON.parse(refreshResponse)['cat-drop-hidden']);
+                  $('#newcatname').val("");
+                  $('#newcatname').attr("placeholder", '');
+                    $('#cat-drop-hidden').hide();
+                    $('#cat-rename-drop').on("change", $.renameCategory_onChange);
 								}
 							});
 						}
