@@ -1,8 +1,7 @@
 {
   "name": "flipgoal/front-end-categories",
   "type": "wordpress-plugin",
-  "description": "A tiny and super simple plugin for creating categories 
-and sub-categories on the WordPress front-end using Ajax.",
+  "description": "A tiny and super simple plugin for creating categories and sub-categories on the WordPress front-end using Ajax.",
   "keywords": ["wordpress", "plugin", "roots"],
   "homepage": "https://flipgoal.com",
   "license": "MIT",
